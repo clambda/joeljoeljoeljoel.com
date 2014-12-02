@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html>
+
+<style>
+html, body {
+  width:  100%;
+  height: 100%;
+  margin: 0px;
+  overflow: hidden;
+}
+</style>
+
+<body>
+
+<canvas id='board'> </canvas>
+
+<script>
+
+
+var board = document.getElementById("board").getContext("2d");
+board.canvas.width = window.innerWidth;
+board.canvas.height = window.innerHeight;
+var flag = new Image();
+flag.src = "assets/img/flagsprite.png";
+
+var menuInt;
+var gameInt;
+var endInt;
+
+var gravity = 25;
+var jumpSpeed = -25;
+var playing = false;
+
+var E = 0;
+
+var redraw = function() {
+	board.canvas.width = window.innerWidth;
+	board.canvas.height = window.innerHeight;
+	board.fillStyle = "#000000";
+	board.fillRect(0, 0, window.innerWidth, window.innerHeight);
+	board.fillStyle = "#FF66FF";
+	board.font = "50px Arial";
+	for (var let in title) {
+		title[let].draw();
+	}
+	var playerDrawn = false;
+	for (var i in platforms) {
+		platforms[i].draw();
+		if (platforms[i] == player.plat) {
+			playerDrawn = true;
+			player.draw();
+		}
+	}
+	board.drawImage(flag, platforms[4].x + 30, platforms[4].y - 25);
+	if (!playerDrawn) player.draw();
+}
+
+var letter = function(x, char, special) {
+	this.special = special;
+	this.x = x * board.canvas.width;
+	this.firstOrigin = x;
+	this.origin = x
+	this.char = char;
+	this.resize = function() {
+		if (board.canvas.width > 550) {
+			this.origin = this.firstOrigin;
+			return;
+		}
+		switch (this.char) {
+			case "R":
+				this.origin = 0.25;
+				break;
+			case "E":
+				if (E) {
+					this.origin = 0.35;
+				} else {
+					this.origin = 0.69;
+				}
+				E = !E;
+				break;
+			case "S":
+				this.origin = 0.45;
+				break;
+			case "I":
+				this.origin = 0.55;
+				break;
+			case "Z":
+				this.origin = 0.59;
+				break;
+			default:
+		}
+	}
+	this.draw = function() {
+		if (this.special) this.resize();
+		this.x = this.origin * board.canvas.width;
+		if (this.special || board.canvas.width > 550) {	
+			board.fillText(this.char, this.x, 0.25 * board.canvas.height);
+		}
+	}
+}
+
+var platform = function(x, y, width, height, color) {
+	this.color = color;
+	this.width = width;
+	this.height = height;
+	this.x = x * board.canvas.width;
+	this.y = y * board.canvas.height;
+	this.origin = [x, y];
+	this.draw = function() {
+		this.x = this.origin[0] * board.canvas.width;
+		this.y = this.origin[1] * board.canvas.height;
+		board.fillStyle = this.color;
+		board.fillRect(this.x, this.y, this.width, this.height);
+	}
+	this.widthCollision = function(feetX) {
+		return (feetX + 10 >= this.x && feetX <= this.x + this.width)
+	}
+	this.topCollision = function(feetX, feetY) {
+		return (this.widthCollision(feetX)
+			&& feetY >= this.y - 12 && feetY <= this.y + 12)
+	}
+}
+
+var movingPlatform = function(x, y, width, height, color, speed) {
+	var result = new platform(x, y, width, height, color);
+	result.position = result.origin[1];
+	result.direction = speed;
+	result.draw = function() {
+		result.x = result.origin[0] * board.canvas.width;
+		if (result.position < result.origin[1] - 0.20 || result.position > result.origin[1]) {
+			result.direction = -result.direction;
+		}
+		result.position += result.direction;
+		result.y = result.position * board.canvas.height;
+		board.fillStyle = result.color;
+		board.fillRect(result.x, result.y, result.width, result.height);
+	}
+	return result;
+}
+
+var manual = function(x, y) {
+	this.x = x;
+	this.y = y;
+	this.horizontal = 0;
+	this.vertical = 0;
+	this.plat = null;
+	this.platX = null;
+	this.jumpStart = false;
+	this.winCheck = function() {
+		if (this.plat == platforms[4]) {
+			setTimeout(function() {
+				clearInterval(gameInt);
+				endInt = setInterval(end, 50);
+				setTimeout(function() {clearInterval(endInt); game()}, 3000);
+			}, 500);
+		}
+	}
+	this.bottom = function() {
+		return this.y + 20;
+	}
+	this.grounded = function() { //returns true if on/near platform. also records said platform
+		if (this.vertical >= 0) {
+			for (var i = platforms.length - 1; i >= 0; i -= 1) {
+				if (platforms[i].topCollision(this.x, this.bottom())) {
+					this.plat = platforms[i];
+					this.platX = platforms[i].x;
+					this.vertical = 0;
+					this.winCheck();
+					return true;
+				}
+			}
+		}
+		this.plat = null;
+		return false;
+	}
+	this.walk = function() {
+		var total = 0;
+		if (left) total -= 5;
+		if (right) total += 5;
+		this.x += total;
+	}
+	this.jump = function() {
+		if (up && this.plat != null) {
+			this.plat = null;
+			this.vertical = jumpSpeed;
+			this.jumpStart = true;
+			up = false;
+		}
+	}
+	this.fall = function() {
+		if (this.plat == null && this.vertical != gravity) {
+			var t = (gravity - this.vertical) / (gravity - jumpSpeed);
+			this.vertical += 5 * t;
+			if (this.vertical > gravity - 0.05) {
+				this.vertical = gravity;
+			}
+		}
+	}
+	this.respawn = function() {
+		if (this.y > board.canvas.height) {
+			this.vertical = 0;
+			this.x = platforms[0].x + platforms[0].width * 0.45;
+			this.y = platforms[0].y - 50;
+		}
+	}
+	this.draw = function() {
+		this.respawn();
+		this.jump();
+		this.fall();
+		if (this.plat != null && !this.plat.widthCollision(this.x)) { //fall off platform
+			this.plat = null;
+		}
+		if (this.plat == null && (this.jumpStart || !this.grounded())) {
+			this.y += this.vertical; 
+			this.jumpStart = false;
+			up = false;
+		} else {
+			this.y = this.plat.y - 20;
+			this.x += this.plat.x - this.platX;
+			this.platX = this.plat.x;
+		}
+		this.walk();
+		board.fillStyle = "#99FF33";
+		board.fillRect(this.x, this.y, 10, 20);
+	}
+}
+
+var left = false;
+var right = false;
+var up = false;
+
+document.onkeydown = function() {
+	if (!playing) {
+		playing = true;
+		clearInterval(menuInt);
+		player.x = platforms[0].x + platforms[0].width * 0.45;
+		player.y = platforms[0].y - 50;
+		gameInt = setInterval(redraw, 50);
+	}
+	switch (window.event.keyCode) {
+		case 65: //A
+		case 37: //left
+			left = true;
+			break;
+		case 68: //D
+		case 39: //right
+			right = true;
+			break;
+		case 87: //W
+		case 38: //up
+			up = true;
+			break;
+		default:
+	}
+}
+
+document.onkeyup = function() {
+	switch (window.event.keyCode) {
+		case 65: //A
+		case 37: //left
+			left = false;
+			break;
+		case 68: //D
+		case 39: //right
+			right = false;
+			break;
+		default:
+	}
+}
+
+var title = [new letter(0.25, "S", false), new letter(0.28, "A", false),
+	new letter(0.31, "N", false), new letter(0.34, "G", false),
+	new letter(0.37, "R", true), new letter(0.40, "E", true),
+	new letter(0.47, "S", true), new letter(0.50, "I", true),
+	new letter(0.55, "Z", true), new letter(0.58, "E", true),
+	new letter(0.61, "N", false), new letter(0.64, "I", false),
+	new letter(0.65, "T", false), new letter(0.675, "H", false)];
+var platforms = [movingPlatform(0.05, 0.6, 100, 500, "#993399", -0.005),
+	movingPlatform(0.5, 0.7, 100, 400, "#FF6666", -0.0025),
+	movingPlatform(0.35, 0.7, 100, 400, "#663399", -0.01),
+	movingPlatform(0.2, 0.8, 100, 400, "#3366FF", -0.0075),
+	movingPlatform(0.84, 0.65, 100, 400, "#FFFF66", -0.004),
+	movingPlatform(0.685, 0.9, 100, 400, "#33CCFF", -0.006)];
+var player = new manual(platforms[0].x + platforms[0].width * 0.45,
+	platforms[0].y - 50);
+
+
+var menu = function() {
+	board.canvas.width = window.innerWidth;
+	board.canvas.height = window.innerHeight;
+	board.fillStyle = "#000000";
+	board.fillRect(0, 0, window.innerWidth, window.innerHeight);
+	board.fillStyle = "#FF66FF";
+	board.font = "50px Arial";
+	for (var let in title) {
+		title[let].draw();
+	}
+	var px = 0.04 * (board.canvas.width + board.canvas.height) / 2;
+	board.font = px + "px Arial";
+	board.fillText("by Joel Terry", 0.385 * board.canvas.width, 0.35 * board.canvas.height);
+	px = 0.03 * (board.canvas.width + board.canvas.height) / 2;
+	board.font = px + "px Arial";
+	board.fillText("Press Any Key to Start", 0.36 * board.canvas.width, 0.7 * board.canvas.height);
+}
+
+var end = function() {
+	board.canvas.width = window.innerWidth;
+	board.canvas.height = window.innerHeight;
+	board.fillStyle = "#000000";
+	board.fillRect(0, 0, window.innerWidth, window.innerHeight);
+	board.fillStyle = "#FF66FF";
+	board.font = "100px Arial";
+	board.fillText("GG!", 0.2 * board.canvas.width, 0.5 * board.canvas.height);
+}
+
+var game = function() {
+	playing = false;
+	menuInt = setInterval(menu, 50);
+}
+
+game();
+
+</script>
+
+</body>
+
+</html>

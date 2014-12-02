@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="assets/css/style.css" />
+<link href='http://fonts.googleapis.com/css?family=Muli' rel='stylesheet' type='text/css'>
+</head>
+<body>
+<div class = "title">SNAKE
+<div class = "subtitle">by Joel Terry</div></div>
+<div class = "pages">
+<div><a href="index.html">Home</a></div>
+<div><a href="dvd.html">DVD Screensaver: The Game</a></div>
+<div><a href="sangresizenith.html">Sangre si Zenith</a></div></div>
+<div id = "snake-container">
+<canvas id="snakeboard" width="800" height="400"
+style="border:2px solid #000000">
+</canvas>
+
+<div id="scoreboard"> Score: 1 </div>
+</div>
+<SCRIPT LANGUAGE="JavaScript">
+var draw = document.getElementById("snakeboard").getContext("2d");
+draw.fillStyle = "#CCFF99";
+draw.fillRect(0, 0, 800, 400);
+draw.fillStyle = "#006633";
+
+var toCoord = function(n) {
+	var x = (n % 80) * 10;
+	var y = Math.floor(n / 80) * 10;
+	return [x, y];
+};
+
+var fill = function(n) {
+	var coord = toCoord(n);
+	draw.fillRect(coord[0], coord[1], 10, 10);
+};
+
+var clear = function(n) {
+	var coord = toCoord(n);
+	draw.clearRect(coord[0], coord[1], 10, 10);
+};
+
+var contains = function(array, element) {
+	for (var i = 0; i < array.length; i += 1) {
+		if (array[i] === element) {
+			return true;
+		}
+	}
+	return false;
+};
+
+var placeFood = function() {
+	var result = Math.floor(Math.random() * 3200);
+	while (contains(snake, result) || result < 80 || result > 3119
+		|| result % 80 === 0 || result % 80 === 79) {
+		result = Math.floor(Math.random() * 3200);
+	}
+	return result;
+};
+
+var snake = [405];
+var score = 1;
+var food = placeFood();
+var direction = "e";
+var start = false;
+var paused = false;
+var gameInProgress = false;
+var growth = 0;
+var oldDirection = "e";
+var mute = false;
+
+var gg1 = new Audio("gg1.mp3");
+var gg2 = new Audio("gg2.mp3");
+var gg3 = new Audio("gg3.mp3");
+var gg4 = new Audio("gg4.mp3");
+var gg5 = new Audio("gg5.mp3");
+
+var gg = [gg1, gg2, gg3, gg4, gg5];
+var ggHistory = 0;
+
+var playGG = function() {
+	var i = Math.floor(Math.random() * 5);
+	while (i === ggHistory) {
+		i = Math.floor(Math.random() * 5);
+	}
+	ggHistory = i;
+	gg[i].play();
+};
+
+var redraw = function() {
+	draw.fillStyle = "#CCFF99";
+	draw.fillRect(0, 0, 800, 400);
+	draw.fillStyle = "#006633";
+	for (var n in snake) {
+		fill(snake[n]);
+	}
+	draw.fillStyle = "#3333FF";
+	fill(food);
+	draw.fillStyle = "#000000";
+	draw.font = "12px Arial";
+	if (mute) {
+		draw.fillText("Press M to unmute", 695, 395);
+	} else {
+		draw.fillText("Press M to mute", 695, 395);
+	}
+};
+
+document.onkeydown = function() {
+	switch (window.event.keyCode) {
+		case 37:
+			if (oldDirection !== "e") {
+				direction = "w";
+			}
+			break;
+		case 38:
+			if (oldDirection !== "s") {
+				direction = "n";
+			}
+			break;
+		case 39:
+			if (oldDirection !== "w") {
+				direction = "e";
+			}
+			break;
+		case 40:
+			if (oldDirection !== "n") {
+				direction = "s";
+			}
+			break;
+		case 77:
+			mute = !mute;
+			break;
+		case 32:
+			if (gameInProgress) {
+				gameInProgress = false;
+				start = false;
+				paused = true;
+				startScreen();
+				clearInterval(interval);
+			} else {
+				start = true;
+			}
+			break;
+		default:
+	}
+};
+
+var move = function() {
+	var next;
+	oldDirection = direction;
+	switch (direction) {
+		case "n":
+			next = snake[snake.length - 1] - 80;
+			break;
+		case "s":
+			next = snake[snake.length - 1] + 80;
+			break;
+		case "w":
+			next = snake[snake.length - 1] - 1;
+			break;
+		case "e":
+			next = snake[snake.length - 1] + 1;
+			break;
+		default:
+	}
+	if (next < 0 || next > 3199 || (next % 80 === 0 && direction === "e")
+		|| (next % 80 === 79 && direction === "w") || contains(snake, next)) {
+		startScreen();
+		clearInterval(interval);
+		start = false;
+		gameInProgress = false;
+	} else {
+		if (next === food) {
+			food = placeFood();
+			growth = 5;
+			score += 5;
+			document.getElementById("scoreboard").innerHTML = "Score: " + score;
+			if (!mute) {
+				playGG();
+			}
+		}
+		if (growth > 0) {
+			snake.push(next);
+			growth -= 1;
+		} else {
+			snake.push(next);
+			snake.shift();
+		}
+	}
+};
+
+var game = function() {
+		redraw();
+		move();
+};
+
+var interval;
+
+var setup = function() {
+	snake = [405];
+	score = 1;
+	food = placeFood();
+	direction = "e";
+	start = true;
+	growth = 0;
+	document.getElementById("scoreboard").innerHTML = "Score: " + score;
+};
+
+var startScreen = function() {
+	draw.font = "30px Arial";
+	draw.fillStyle = "#000000";
+	draw.fillText("Press Space to Start", 255, 200);
+};
+
+var play = function() {
+	if (start && !gameInProgress) {
+		if (!paused) {
+			setup();
+		} else {
+			paused = false;
+		}
+		gameInProgress = true;
+		interval = setInterval(game, 40);
+	}
+};
+
+startScreen();
+
+setInterval(play, 250);
+
+</SCRIPT>
+
+</body>
+</html>
