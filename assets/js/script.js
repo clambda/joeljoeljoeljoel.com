@@ -24,7 +24,7 @@ $(document).ready(function() {
             $("input").val(this.placeholder);
             $("#quote-container").show();
             var offset = ($("#home-container").width() * .5) - 200;
-            var newmargin = ($(window).scrollTop() + offset) % ($("#home-container").width() - 400)
+            var newmargin = ($(window).scrollTop()/2 + offset) % ($("#home-container").width() - 400)
             $("#quote-container").css("margin-left", newmargin);
         }
     });
